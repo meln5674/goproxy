@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
+	"golang.org/x/net/http/httpproxy"
 	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -350,14 +350,15 @@ func copyAndClose(ctx *ProxyCtx, dst, src halfClosable) {
 }
 
 func dialerFromEnv(proxy *ProxyHttpServer) func(network, addr string) (net.Conn, error) {
-	https_proxy := os.Getenv("HTTPS_PROXY")
-	if https_proxy == "" {
-		https_proxy = os.Getenv("https_proxy")
-	}
-	if https_proxy == "" {
+	cfg := httpproxy.FromEnvironment()
+	if cfg == nil {
 		return nil
 	}
-	return proxy.NewConnectDialToProxy(https_proxy)
+	if cfg.ProxyFunc() == nil {
+		return nil
+	}
+
+	return proxy.NewConnectDialToProxy(cfg.HTTPSProxy)
 }
 
 func (proxy *ProxyHttpServer) NewConnectDialToProxy(https_proxy string) func(network, addr string) (net.Conn, error) {
