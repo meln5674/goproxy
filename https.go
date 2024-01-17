@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
-	"golang.org/x/net/http/httpproxy"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"golang.org/x/net/http/httpproxy"
 )
 
 type ConnectActionLiteral int
@@ -365,6 +366,17 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxy(https_proxy string) func(net
 	return proxy.NewConnectDialToProxyWithHandler(https_proxy, nil)
 }
 
+func setProxyAuthorization(req *http.Request, userinfo *url.Userinfo) {
+	if userinfo == nil {
+		return
+	}
+	user := userinfo.Username()
+	pass, _ := userinfo.Password()
+	req.SetBasicAuth(user, pass)
+	req.Header.Add("Proxy-Authorization", req.Header.Get("Authorization"))
+	req.Header.Del("Authorization")
+}
+
 func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(https_proxy string, connectReqHandler func(req *http.Request)) func(network, addr string) (net.Conn, error) {
 	u, err := url.Parse(https_proxy)
 	if err != nil {
@@ -381,6 +393,7 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(https_proxy strin
 				Host:   addr,
 				Header: make(http.Header),
 			}
+			setProxyAuthorization(connectReq, u.User)
 			if connectReqHandler != nil {
 				connectReqHandler(connectReq)
 			}
@@ -426,6 +439,7 @@ func (proxy *ProxyHttpServer) NewConnectDialToProxyWithHandler(https_proxy strin
 				Host:   addr,
 				Header: make(http.Header),
 			}
+			setProxyAuthorization(connectReq, u.User)
 			if connectReqHandler != nil {
 				connectReqHandler(connectReq)
 			}
