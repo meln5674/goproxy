@@ -24,6 +24,7 @@ import (
 
 	"github.com/elazarl/goproxy"
 	goproxy_image "github.com/elazarl/goproxy/ext/image"
+	"golang.org/x/net/http/httpproxy"
 )
 
 var acceptAllCerts = &tls.Config{InsecureSkipVerify: true}
@@ -655,7 +656,7 @@ func TestGoproxyThroughProxy(t *testing.T) {
 	_, l := oneShotProxy(proxy, t)
 	defer l.Close()
 
-	proxy2.ConnectDial = proxy2.NewConnectDialToProxy(l.URL)
+	proxy2.ConnectDial = proxy2.NewConnectDialToProxy(&httpproxy.Config{HTTPProxy: l.URL, HTTPSProxy: l.URL})(nil)
 
 	client, l2 := oneShotProxy(proxy2, t)
 	defer l2.Close()

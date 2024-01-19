@@ -2,7 +2,6 @@ package goproxy
 
 import (
 	"bufio"
-	"context"
 	"io"
 	"log"
 	"net"
@@ -10,8 +9,6 @@ import (
 	"os"
 	"regexp"
 	"sync/atomic"
-
-	xproxy "golang.org/x/net/proxy"
 )
 
 // The basic proxy type. Implements http.Handler.
@@ -33,6 +30,7 @@ type ProxyHttpServer struct {
 	// if nil Tr.Dial will be used
 	ConnectDial        func(network string, addr string) (net.Conn, error)
 	ConnectDialWithReq func(req *http.Request, network string, addr string) (net.Conn, error)
+	ConnectDialFromReq func(req *http.Request) func(network string, addr string) (net.Conn, error)
 	CertStore          CertStorage
 	KeepHeader         bool
 }
@@ -222,15 +220,10 @@ func NewProxyHttpServer() *ProxyHttpServer {
 		Tr: &http.Transport{
 			TLSClientConfig: tlsClientSkipVerify,
 			Proxy:           http.ProxyFromEnvironment,
-			Dial: func(network, address string) (net.Conn, error) {
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-				return xproxy.Dial(ctx, network, address)
-			},
 		},
 	}
 
-	proxy.ConnectDial = dialerFromEnv(&proxy)
+	proxy.ConnectDialFromReq = dialerFromEnv(&proxy)
 
 	return &proxy
 }
